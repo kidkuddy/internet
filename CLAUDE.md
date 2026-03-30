@@ -1,34 +1,39 @@
 # Internet Tracker
 
-macOS menu bar app that tracks network usage. Built with Swift, AppKit, and SwiftUI.
+macOS network usage tracker. Swift daemon collects data, Übersicht widget displays it.
 
 ## Architecture
 
-- **Entry point**: `Sources/App.swift` — sets up `NSStatusItem` (menu bar icon) + `NSPopover` (click panel). Uses `.accessory` activation policy to hide from Dock.
-- **Network monitoring**: `Sources/NetworkMonitor.swift` — polls `getifaddrs()` every 10 seconds to read cumulative byte counters from network interfaces (`en*` for WiFi/Ethernet, `pdp_ip*` for cellular). Computes deltas between readings and stores them.
-- **Storage**: `Sources/Storage.swift` — SQLite3 (system library, zero deps). Stores usage deltas in `~/Library/Application Support/InternetTracker/usage.db`. Single table: `usage(timestamp, bytes_in, bytes_out)`.
-- **UI**: `Sources/PopoverView.swift` — SwiftUI views hosted in `NSHostingController`. Shows today total, month total, and live speed.
-- **Formatting**: `Sources/ByteFormatter.swift` — human-readable byte/speed formatting.
+Two components:
+
+1. **Swift host app** (background daemon) — polls `getifaddrs()` every 10s, stores deltas in SQLite.
+2. **Übersicht widget** (display) — reads SQLite, renders usage card on desktop.
+
+### Host App (`InternetTracker/` + `Shared/`)
+
+- **Entry point**: `InternetTracker/App.swift` — SwiftUI App with Settings scene. Runs as `LSUIElement` (no Dock icon). Registers for launch at login via `SMAppService`.
+- **Network monitoring**: `InternetTracker/NetworkMonitor.swift` — polls `getifaddrs()` every 10 seconds. Reads cumulative byte counters from `en*` (WiFi/Ethernet) and `pdp_ip*` (cellular) interfaces. Computes deltas between readings.
+- **Storage**: `Shared/Storage.swift` — SQLite3 (system library, zero deps). Uses App Group container for shared access.
+- **Formatting**: `Shared/ByteFormatter.swift` — human-readable byte/speed formatting.
+- **Logging**: `Shared/Logger.swift` — file + OS unified log.
+
+### Übersicht Widget (`widgets/internet-tracker.jsx`)
+
+- JSX widget that shells out to `sqlite3` to query usage data.
+- Refreshes every 10 seconds.
+- Renders a frosted glass card with today/month totals and up/down breakdown.
 
 ## Build & Run
 
 ```sh
-make build   # Builds release binary + .app bundle
-make run     # Build + run directly
-make install # Copy .app to /Applications
-make clean   # Remove build artifacts
+make build     # Build with xcodebuild
+make run       # Build + run
+make install   # Copy .app to /Applications
+make clean     # Remove build artifacts
+make generate  # Regenerate .xcodeproj from project.yml
 ```
 
-The Makefile wraps `swift build -c release` and assembles the `.app` bundle with `Info.plist` (required for `LSUIElement` to hide Dock icon).
-
-## Key Design Decisions
-
-- **`getifaddrs()` over `nettop`/`netstat`**: Direct C system call, no process spawning. Fast and reliable.
-- **Delta-based storage**: System byte counters reset on reboot. We store deltas between polls, so reboots don't lose history.
-- **Counter reset detection**: If a new reading is less than the previous one, we assume a reboot occurred and treat the new value as a fresh delta from zero.
-- **10-second poll interval**: Balance between responsiveness and resource usage. Aggregates to SQLite every poll.
-- **No external dependencies**: Uses only macOS system frameworks (AppKit, SwiftUI, SQLite3, Darwin, ServiceManagement).
-- **Launch at login**: Uses `SMAppService.mainApp.register()` (macOS 13+). Requires the app to be in `/Applications` or signed.
+The Übersicht widget auto-loads from `~/Library/Application Support/Übersicht/widgets/`. Copy `widgets/internet-tracker.jsx` there, or symlink it.
 
 ## Logging & Debugging
 
@@ -36,12 +41,14 @@ The Makefile wraps `swift build -c release` and assembles the `.app` bundle with
 - **OS log**: Also writes to unified logging (`Console.app`), subsystem `com.kidkuddy.internet-tracker`.
 - **Watch live**: `tail -f ~/Library/Application\ Support/InternetTracker/app.log`
 - **Console.app filter**: process = `InternetTracker`
-- **Database**: `~/Library/Application Support/InternetTracker/usage.db` — inspect with `sqlite3`
+- **Database**: `~/Library/Group Containers/7PJ2KBXD4T.com.kidkuddy.internet-tracker.group/usage.db` — inspect with `sqlite3`
 - **Kill running instance**: `pkill -f InternetTracker`
 
 ## Database
 
-Location: `~/Library/Application Support/InternetTracker/usage.db`
+Location: `~/Library/Group Containers/7PJ2KBXD4T.com.kidkuddy.internet-tracker.group/usage.db`
+
+Fallback: `~/Library/Application Support/InternetTracker/usage.db`
 
 Schema:
 ```sql
@@ -54,10 +61,20 @@ CREATE TABLE usage (
 CREATE INDEX idx_usage_timestamp ON usage(timestamp);
 ```
 
+## Key Design Decisions
+
+- **`getifaddrs()` over `nettop`/`netstat`**: Direct C system call, no process spawning. Fast and reliable.
+- **Delta-based storage**: System byte counters reset on reboot. We store deltas between polls, so reboots don't lose history.
+- **Counter reset detection**: If a new reading is less than the previous one, we assume a reboot occurred and treat the new value as a fresh delta from zero.
+- **10-second poll interval**: Balance between responsiveness and resource usage.
+- **Übersicht over WidgetKit**: WidgetKit requires paid Apple Developer signing. Übersicht is free, scriptable, and works on macOS Tahoe without signing.
+- **No external dependencies**: Host app uses only macOS system frameworks (AppKit, SwiftUI, SQLite3, Darwin, ServiceManagement).
+- **Launch at login**: Uses `SMAppService.mainApp.register()` (macOS 13+). Requires the app to be in `/Applications` or signed.
+
 ## Future Ideas
 
 - Per-app breakdown using `proc_pidinfo` or Network Extension
-- Daily/weekly/monthly charts in the popover
+- Daily/weekly/monthly charts in the widget
 - Usage alerts (e.g., "you've used 50 GB this month")
 - Export data as CSV
 - Log rotation (truncate/archive when log file gets large)

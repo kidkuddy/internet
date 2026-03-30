@@ -6,12 +6,21 @@ final class Storage {
     private let dbPath: String
 
     init() {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!.appendingPathComponent("InternetTracker", isDirectory: true)
+        // Use App Group container so widget and host app share the same db
+        let containerURL: URL
+        if let groupURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: "7PJ2KBXD4T.com.kidkuddy.internet-tracker.group"
+        ) {
+            containerURL = groupURL
+        } else {
+            // Fallback to Application Support
+            containerURL = FileManager.default.urls(
+                for: .applicationSupportDirectory, in: .userDomainMask
+            ).first!.appendingPathComponent("InternetTracker", isDirectory: true)
+        }
 
-        try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
-        dbPath = appSupport.appendingPathComponent("usage.db").path
+        try? FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+        dbPath = containerURL.appendingPathComponent("usage.db").path
     }
 
     func initialize() {

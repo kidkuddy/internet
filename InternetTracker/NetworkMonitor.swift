@@ -1,10 +1,10 @@
 import Darwin
 import Foundation
 
-struct UsageSnapshot: Sendable {
+struct UsageSnapshot {
     let bytesIn: UInt64
     let bytesOut: UInt64
-    let timestamp: Date
+    var total: UInt64 { bytesIn + bytesOut }
 }
 
 struct SpeedReading: Sendable {
@@ -14,21 +14,19 @@ struct SpeedReading: Sendable {
 
 @MainActor
 final class NetworkMonitor: ObservableObject {
-    @Published var todayTotal = UsageSnapshot(bytesIn: 0, bytesOut: 0, timestamp: Date())
-    @Published var monthTotal = UsageSnapshot(bytesIn: 0, bytesOut: 0, timestamp: Date())
+    @Published var todayTotal = UsageSnapshot(bytesIn: 0, bytesOut: 0)
+    @Published var monthTotal = UsageSnapshot(bytesIn: 0, bytesOut: 0)
     @Published var speed = SpeedReading(downloadBytesPerSec: 0, uploadBytesPerSec: 0)
 
     private let storage = Storage()
     private var timer: Timer?
     private var lastReading: (bytesIn: UInt64, bytesOut: UInt64, time: Date)?
+    private var started = false
 
-    var onUpdate: (() -> Void)?
-
-    func startMonitoring() {
+    init() {
         storage.initialize()
         refreshAggregates()
 
-        // Take initial reading to establish baseline
         let (bytesIn, bytesOut) = Self.readSystemBytes()
         Log.info("Initial reading: in=\(bytesIn) out=\(bytesOut)")
         lastReading = (bytesIn, bytesOut, Date())
@@ -38,6 +36,7 @@ final class NetworkMonitor: ObservableObject {
                 self?.poll()
             }
         }
+        Log.info("Monitoring started")
     }
 
     private func poll() {
@@ -49,26 +48,10 @@ final class NetworkMonitor: ObservableObject {
             return
         }
 
-        // Detect counter reset (reboot) — if current < last, counters wrapped
-        let deltaIn: UInt64
-        let deltaOut: UInt64
-
-        if currentIn >= last.bytesIn {
-            deltaIn = currentIn - last.bytesIn
-        } else {
-            // Counter reset — treat current as the delta from zero
-            deltaIn = currentIn
-        }
-
-        if currentOut >= last.bytesOut {
-            deltaOut = currentOut - last.bytesOut
-        } else {
-            deltaOut = currentOut
-        }
+        let deltaIn: UInt64 = currentIn >= last.bytesIn ? currentIn - last.bytesIn : currentIn
+        let deltaOut: UInt64 = currentOut >= last.bytesOut ? currentOut - last.bytesOut : currentOut
 
         let elapsed = now.timeIntervalSince(last.time)
-
-        // Update live speed
         if elapsed > 0 {
             speed = SpeedReading(
                 downloadBytesPerSec: Double(deltaIn) / elapsed,
@@ -76,14 +59,12 @@ final class NetworkMonitor: ObservableObject {
             )
         }
 
-        // Only store if there's actual traffic (ignore noise)
         if deltaIn > 0 || deltaOut > 0 {
             storage.recordUsage(bytesIn: deltaIn, bytesOut: deltaOut, at: now)
         }
 
         lastReading = (currentIn, currentOut, now)
         refreshAggregates()
-        onUpdate?()
     }
 
     private func refreshAggregates() {
@@ -93,19 +74,15 @@ final class NetworkMonitor: ObservableObject {
 
         var components = calendar.dateComponents([.year, .month], from: now)
         components.day = 1
-        components.hour = 0
-        components.minute = 0
-        components.second = 0
         let startOfMonth = calendar.date(from: components) ?? startOfDay
 
         let (dayIn, dayOut) = storage.totalUsage(since: startOfDay)
         let (monthIn, monthOut) = storage.totalUsage(since: startOfMonth)
 
-        todayTotal = UsageSnapshot(bytesIn: dayIn, bytesOut: dayOut, timestamp: now)
-        monthTotal = UsageSnapshot(bytesIn: monthIn, bytesOut: monthOut, timestamp: now)
+        todayTotal = UsageSnapshot(bytesIn: dayIn, bytesOut: dayOut)
+        monthTotal = UsageSnapshot(bytesIn: monthIn, bytesOut: monthOut)
     }
 
-    /// Reads cumulative byte counters from all active network interfaces
     nonisolated static func readSystemBytes() -> (bytesIn: UInt64, bytesOut: UInt64) {
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else {
@@ -120,8 +97,6 @@ final class NetworkMonitor: ObservableObject {
         while let ptr = cursor {
             let iface = ptr.pointee
             let name = String(cString: iface.ifa_name)
-
-            // en* = WiFi/Ethernet, pdp_ip* = cellular, utun* = VPN tunnels
             let isRelevant = name.hasPrefix("en") || name.hasPrefix("pdp_ip")
 
             if isRelevant, let data = iface.ifa_data,
@@ -130,10 +105,8 @@ final class NetworkMonitor: ObservableObject {
                 totalIn += UInt64(networkData.ifi_ibytes)
                 totalOut += UInt64(networkData.ifi_obytes)
             }
-
             cursor = iface.ifa_next
         }
-
         return (totalIn, totalOut)
     }
 }

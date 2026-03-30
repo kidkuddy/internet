@@ -1,0 +1,30 @@
+name: InternetTracker
+options:
+  bundleIdPrefix: com.kidkuddy
+  deploymentTarget:
+    macOS: "14.0"
+
+settings:
+  base:
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+
+targets:
+  InternetTracker:
+    type: application
+    platform: macOS
+    sources:
+      - InternetTracker
+      - Shared
+    info:
+      path: InternetTracker/Info.plist
+      properties:
+        LSUIElement: true
+    entitlements:
+      path: InternetTracker/InternetTracker.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - 7PJ2KBXD4T.com.kidkuddy.internet-tracker.group
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kidkuddy.internet-tracker

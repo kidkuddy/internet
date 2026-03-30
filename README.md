@@ -1,19 +1,25 @@
 # Internet Tracker
 
-A lightweight macOS menu bar app that tracks your network usage. Shows how much data you've used today and this month, with a live speed indicator.
+A lightweight macOS network usage tracker. A background Swift app collects data, and an [Übersicht](https://tracesof.net/uebersicht/) widget displays it on your desktop.
 
 ![macOS](https://img.shields.io/badge/macOS-14.0+-blue) ![Swift](https://img.shields.io/badge/Swift-5.9+-orange) ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-green)
 
 ## Features
 
-- **Menu bar display** — shows total data used today, always visible
+- **Desktop widget** — frosted glass card showing usage at a glance
 - **Today & month totals** — download and upload broken down
-- **Live speed** — current download/upload speed updated every 10 seconds
 - **Persistent history** — usage stored in local SQLite database, survives reboots
-- **Zero dependencies** — uses only macOS system frameworks
-- **Lightweight** — no Electron, no web views, pure native Swift
+- **Zero dependencies** — host app uses only macOS system frameworks
+- **Lightweight** — background daemon + shell-based widget, no Electron
 
 ## Install
+
+### Prerequisites
+
+- Xcode Command Line Tools (Swift 5.9+, macOS 14+)
+- [Übersicht](https://tracesof.net/uebersicht/) (`brew install --cask ubersicht`)
+
+### Setup
 
 ```sh
 git clone https://github.com/kidkuddy/internet.git
@@ -21,40 +27,35 @@ cd internet
 make install
 ```
 
-This builds a release binary and copies `InternetTracker.app` to `/Applications`.
-
-## Usage
-
-Launch from `/Applications/InternetTracker.app` or run directly:
+Then copy the widget:
 
 ```sh
-make run
+cp widgets/internet-tracker.jsx ~/Library/Application\ Support/Übersicht/widgets/
 ```
 
-Click the menu bar icon to see the popover with detailed usage stats.
+Launch `InternetTracker.app` from `/Applications` — it runs in the background with no Dock icon, collecting network data. The Übersicht widget reads from its database and updates every 10 seconds.
 
 ## Build from Source
 
-Requires Xcode Command Line Tools (Swift 5.9+, macOS 14+).
-
 ```sh
-make build   # Build .app bundle
-make run     # Build and run
-make install # Install to /Applications
-make clean   # Clean build artifacts
+make generate  # Generate .xcodeproj from project.yml (requires xcodegen)
+make build     # Build release
+make run       # Build and run
+make install   # Install to /Applications
+make clean     # Clean build artifacts
 ```
 
 ## How It Works
 
-The app reads network interface byte counters directly via the `getifaddrs()` system call every 10 seconds. It computes the delta between readings and stores them in a local SQLite database at `~/Library/Application Support/InternetTracker/usage.db`.
+The host app reads network interface byte counters via `getifaddrs()` every 10 seconds, computes deltas, and stores them in SQLite. The Übersicht widget queries the database with `sqlite3` and renders the results.
 
-Counter resets (from reboots) are detected automatically — if a new reading is smaller than the previous one, it's treated as a fresh start rather than a massive negative delta.
+Counter resets from reboots are handled automatically — if a new reading is smaller than the previous one, it's treated as a fresh start.
 
 ## Data Location
 
-All data is stored locally:
-- **Database**: `~/Library/Application Support/InternetTracker/usage.db`
-- **No network requests** — the app only reads your local network interface stats
+- **Database**: `~/Library/Group Containers/7PJ2KBXD4T.com.kidkuddy.internet-tracker.group/usage.db`
+- **Logs**: `~/Library/Application Support/InternetTracker/app.log`
+- **No network requests** — the app only reads local network interface stats
 
 ## License
 

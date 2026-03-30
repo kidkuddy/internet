@@ -1,25 +1,23 @@
 APP_NAME = InternetTracker
-BUILD_DIR = .build/release
-APP_BUNDLE = $(APP_NAME).app
+PROJECT = $(APP_NAME).xcodeproj
+BUILD_DIR = $(shell xcodebuild -project $(PROJECT) -scheme $(APP_NAME) -configuration Release -showBuildSettings 2>/dev/null | grep '^\s*BUILT_PRODUCTS_DIR' | head -1 | awk '{print $$3}')
 
-.PHONY: build install run clean
+.PHONY: build install run clean generate
+
+generate:
+	xcodegen generate
 
 build:
-	swift build -c release
-	rm -rf $(APP_BUNDLE)
-	mkdir -p $(APP_BUNDLE)/Contents/MacOS
-	mkdir -p $(APP_BUNDLE)/Contents/Resources
-	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
-	cp Resources/Info.plist $(APP_BUNDLE)/Contents/
+	xcodebuild -project $(PROJECT) -scheme $(APP_NAME) -configuration Release build
 
 install: build
-	rm -rf /Applications/$(APP_BUNDLE)
-	cp -r $(APP_BUNDLE) /Applications/
-	@echo "Installed to /Applications/$(APP_BUNDLE)"
+	rm -rf /Applications/$(APP_NAME).app
+	cp -r "$(BUILD_DIR)/$(APP_NAME).app" /Applications/
+	@echo "Installed to /Applications/$(APP_NAME).app"
 
 run: build
-	open $(APP_BUNDLE)
+	open "$(BUILD_DIR)/$(APP_NAME).app"
 
 clean:
-	swift package clean
-	rm -rf $(APP_BUNDLE)
+	xcodebuild -project $(PROJECT) -scheme $(APP_NAME) clean
+	rm -rf ~/Library/Developer/Xcode/DerivedData/$(APP_NAME)-*
