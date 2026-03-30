@@ -50,24 +50,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let totalBytes = today.bytesIn + today.bytesOut
         let formatted = ByteFormatter.format(totalBytes)
 
-        let attachment = NSTextAttachment()
-        attachment.image = NSImage(
-            systemSymbolName: "arrow.up.arrow.down.circle.fill",
+        button.image = NSImage(
+            systemSymbolName: "arrow.up.arrow.down",
             accessibilityDescription: "Internet Tracker"
         )
-        let imageSize = NSSize(width: 14, height: 14)
-        attachment.bounds = CGRect(
-            x: 0, y: -2, width: imageSize.width, height: imageSize.height
-        )
+        button.imagePosition = .imageLeading
+        button.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        button.title = " \(formatted)"
 
-        let attributedString = NSMutableAttributedString(attachment: attachment)
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        attributedString.append(NSAttributedString(
-            string: " \(formatted)",
-            attributes: [.font: font, .baselineOffset: 0.5]
-        ))
-
-        button.attributedTitle = attributedString
+        Log.debug("Menu bar updated: \(formatted)")
     }
 
     @objc private func togglePopover() {

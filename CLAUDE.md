@@ -30,11 +30,14 @@ The Makefile wraps `swift build -c release` and assembles the `.app` bundle with
 - **No external dependencies**: Uses only macOS system frameworks (AppKit, SwiftUI, SQLite3, Darwin, ServiceManagement).
 - **Launch at login**: Uses `SMAppService.mainApp.register()` (macOS 13+). Requires the app to be in `/Applications` or signed.
 
-## Logging
+## Logging & Debugging
 
 - **File log**: `~/Library/Application Support/InternetTracker/app.log` — timestamped, leveled (INFO/ERROR/DEBUG).
 - **OS log**: Also writes to unified logging (`Console.app`), subsystem `com.kidkuddy.internet-tracker`.
-- Filter in Console.app: process = `InternetTracker`.
+- **Watch live**: `tail -f ~/Library/Application\ Support/InternetTracker/app.log`
+- **Console.app filter**: process = `InternetTracker`
+- **Database**: `~/Library/Application Support/InternetTracker/usage.db` — inspect with `sqlite3`
+- **Kill running instance**: `pkill -f InternetTracker`
 
 ## Database
 
