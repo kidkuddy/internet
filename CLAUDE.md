@@ -27,7 +27,14 @@ The Makefile wraps `swift build -c release` and assembles the `.app` bundle with
 - **Delta-based storage**: System byte counters reset on reboot. We store deltas between polls, so reboots don't lose history.
 - **Counter reset detection**: If a new reading is less than the previous one, we assume a reboot occurred and treat the new value as a fresh delta from zero.
 - **10-second poll interval**: Balance between responsiveness and resource usage. Aggregates to SQLite every poll.
-- **No external dependencies**: Uses only macOS system frameworks (AppKit, SwiftUI, SQLite3, Darwin).
+- **No external dependencies**: Uses only macOS system frameworks (AppKit, SwiftUI, SQLite3, Darwin, ServiceManagement).
+- **Launch at login**: Uses `SMAppService.mainApp.register()` (macOS 13+). Requires the app to be in `/Applications` or signed.
+
+## Logging
+
+- **File log**: `~/Library/Application Support/InternetTracker/app.log` — timestamped, leveled (INFO/ERROR/DEBUG).
+- **OS log**: Also writes to unified logging (`Console.app`), subsystem `com.kidkuddy.internet-tracker`.
+- Filter in Console.app: process = `InternetTracker`.
 
 ## Database
 
@@ -50,4 +57,4 @@ CREATE INDEX idx_usage_timestamp ON usage(timestamp);
 - Daily/weekly/monthly charts in the popover
 - Usage alerts (e.g., "you've used 50 GB this month")
 - Export data as CSV
-- Launch at login via `SMAppService`
+- Log rotation (truncate/archive when log file gets large)

@@ -15,8 +15,9 @@ final class Storage {
     }
 
     func initialize() {
+        Log.info("Opening database at \(dbPath)")
         guard sqlite3_open(dbPath, &db) == SQLITE_OK else {
-            print("Failed to open database at \(dbPath)")
+            Log.error("Failed to open database at \(dbPath)")
             return
         }
 
@@ -33,7 +34,7 @@ final class Storage {
         var errMsg: UnsafeMutablePointer<CChar>?
         if sqlite3_exec(db, createTable, nil, nil, &errMsg) != SQLITE_OK {
             if let msg = errMsg {
-                print("SQL error: \(String(cString: msg))")
+                Log.error("SQL error: \(String(cString: msg))")
                 sqlite3_free(msg)
             }
         }

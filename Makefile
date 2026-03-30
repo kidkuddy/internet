@@ -18,7 +18,7 @@ install: build
 	@echo "Installed to /Applications/$(APP_BUNDLE)"
 
 run: build
-	./$(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
+	open $(APP_BUNDLE)
 
 clean:
 	swift package clean

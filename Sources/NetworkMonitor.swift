@@ -30,6 +30,7 @@ final class NetworkMonitor: ObservableObject {
 
         // Take initial reading to establish baseline
         let (bytesIn, bytesOut) = Self.readSystemBytes()
+        Log.info("Initial reading: in=\(bytesIn) out=\(bytesOut)")
         lastReading = (bytesIn, bytesOut, Date())
 
         timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in

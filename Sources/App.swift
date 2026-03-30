@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 @MainActor
@@ -8,6 +9,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let networkMonitor = NetworkMonitor()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Log.info("App launched")
+
+        // Register to launch at login
+        if #available(macOS 13.0, *) {
+            do {
+                try SMAppService.mainApp.register()
+                Log.info("Registered for launch at login")
+            } catch {
+                Log.error("Failed to register launch at login: \(error)")
+            }
+        }
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
@@ -28,6 +41,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateMenuBarTitle()
         }
         networkMonitor.startMonitoring()
+        Log.info("Monitoring started")
     }
 
     private func updateMenuBarTitle() {
