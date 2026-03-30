@@ -1,0 +1,7 @@
+.build/
+InternetTracker.app/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+.DS_Store
